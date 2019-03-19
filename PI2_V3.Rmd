@@ -1,5 +1,5 @@
 ---
-title: "PI2_V2"
+title: "PI2_V3"
 subtitle: "Clustering"
 author: Groupe 88
 date: "`r format(Sys.time())`"
@@ -43,11 +43,11 @@ library(viridisLite) # color map package
 
 # Dataset importation
 ```{r}
-Dataset = function()
+setwd('/Users/imahamat/Documents/IBO/Projets/pi2/Automated-Comparable-Analysis')
+Dataset = function(file)
 {
   # n is the number of outliers to remove
-  df = read.csv("Last.csv", row.names = 1, sep = ';')
-  
+  df = read.csv(file, row.names = 1, sep = ';')
   # Omit non available values if there are any left (pre-treated dataset)
   df <- na.omit(df)
   
@@ -58,10 +58,18 @@ Dataset = function()
 }
 ```
 
-```{r}
-df = Dataset()
-```
 
+
+```{r}
+df = Dataset("ListS&P500.csv")
+df2 = Dataset("ListS&P500_Sector.csv")
+Sector = df2$SECTOR
+Sector
+Company = df2$Company
+Company
+head(df)
+head(df2)
+```
 
 Remove Redundant Features
 Generally, you want to remove attributes with an absolute correlation of 0.75 or higher.
@@ -90,7 +98,7 @@ Multivariate Model Approach
 ```{r}
 new.df = as.data.frame.matrix(df)
 
-mod <- lm(new.df$Pre.Tax.ROE ~ ., data = new.df)
+mod <- lm(new.df$ROE ~ ., data = new.df)
 ```
 
 ## Cook's distance outlier test
@@ -138,7 +146,7 @@ CompanyIndex = function(Df, vect)
 ```
 
 ```{r}
-outliers1 = CompanyIndex(Dataset(), influential)
+outliers1 = CompanyIndex(df, influential)
 outliers1
 ```
 
@@ -292,14 +300,17 @@ points(km$centers, col = 1:7, pch = 3, cex = 2, lwd = 3)
 ```{r}
 OrderClust = function(clust)
 {
+  
   o = order(clust$cluster)
-  kmclust = data.frame(clust$cluster[o])
+  kmclust = data.frame("Cluster" = c(clust$cluster[o]))
   return (kmclust)
 }
 ```
 
 ```{r}
 d1 = OrderClust(km)
+d1
+#write.csv(d1,file = "km2.csv",row.names = FALSE)
 d2 = OrderClust(pam)
 d3 = OrderClust(clara)
 
@@ -331,121 +342,21 @@ grid.arrange(s1, s2, s3, nrow = 2)
 ```
 
 
-# Evaluation of Entreprises within Peergroups 
-
-## Collect values of Inductors 
-
 ```{r}
-Entreprises = df[1]
-MarketCap = df$Market.Cap
-EV = df$EV
-EBITDA = df$EBITDA
-Sales = df$Sales
-NetDebt = df$Net.Debt
-NetIncome = df$Net.Income
-BookValue = df$Book.Value
-```
+#Creer méthode :
+# inserer csv avec sector et trouver de quel secteur sont les entreprises du cluster
+km_c = read.csv("km.csv", row.names = 1, sep = ';')
+km_c$
 
-## Compute Entrepises value 
+movie_matrix <- matrix(km_cluster, nrow = 2, ncol = 3)
+movie_matrix
 
-```{r}
-EV_2 = c(MarketCap + NetDebt)
-EV_2
-Compare_EV = cbind(Entreprises, EV, EV_2)
-Compare_EV
-```
+pam_cluster = OrderClust(pam)
+pam_cluster
 
-
-## Compute Multiples values 
-
-```{r}
-# To measure the ability to generate cash flow
-EV_EBITDA = c(EV / EBITDA) 
-
-# To measure the growth of the company
-EV_Sales = c(EV / Sales) 
-
-EV_BookValue = c(EV / BookValue) 
-EV_NetIncome = c(EV / NetIncome)
-
-MultiplesTable = cbind(Entreprises, EV_NetIncome,EV_EBITDA,EV_BookValue,EV_Sales)
-names(MultiplesTable)=c('Entreprises', 'EV/NetIncome', 'EV/EBITDA', 'EV/BookValue', 'EV/Sales')
+clara_cluster = OrderClust(clara)
+compare = data.frame(Company, Sector,kmclust)
+compare
 
 ```
-
-
-## Multiples Tables 
-We Compute the mean of multiples 
-```{r}
-Mean_EV_NetIncome = mean(EV_NetIncome) 
-Mean_EV_NetIncome2 = mean(EV_NetIncome[-2])
-Mean_EV_BookValue = mean(EV_BookValue)
-Mean_EV_Sales = mean(EV_Sales)  
-Mean_EV_EBITDA = mean(EV_EBITDA)  
-Mean_EV = c(Mean_EV_NetIncome2, Mean_EV_EBITDA, Mean_EV_BookValue, Mean_EV_Sales)  
-```
-
-We Compute the median of multiples 
-```{r}
-Median_EV_NetIncome = median(EV_NetIncome) 
-Median_EV_BookValue = median(EV_BookValue)
-Median_EV_Sales = median(EV_Sales)  
-Median_EV_EBITDA = median(EV_EBITDA)  
-Median_EV = c(Median_EV_NetIncome, Median_EV_EBITDA, Median_EV_BookValue, Median_EV_Sales)
-```
-
-## Choice of the company to be valued
-
-```{r}
-agregats = cbind(Entreprises, NetIncome, EBITDA, BookValue, Sales)
-```
-
-## Valorisation de l'entreprise 1
-
-```{r}
-n <- readline(prompt="Saisir le n° d'entreprise de votre choix : ")
-choix = as.integer(n)
-
-Entreprise_Choisie = Entreprises[choix]
-agregat_cible = agregats[choix,2:5]
-NetDebt_Cible = c(NetDebt[choix], NetDebt[choix], NetDebt[choix], NetDebt[choix])
-
-# La valeur globale de l'entreprise #
-valGlobale_NetIncome =  Mean_EV_NetIncome2*agregat_cible$NetIncome
-valGlobale_EBITDA = Mean_EV_EBITDA*agregat_cible$EBITDA
-valGlobale_BookValue = Mean_EV_BookValue*agregat_cible$BookValue
-valGlobale_Sales = Mean_EV_Sales*agregat_cible$Sales
-EV_cible = c(valGlobale_NetIncome, valGlobale_EBITDA, valGlobale_BookValue, valGlobale_Sales)
-
-# Valeur des capitaux propres #
-valCap_NetIncome = valGlobale_NetIncome - NetDebt[choix]
-valCap_EBITDA = valGlobale_EBITDA - NetDebt[choix]
-valCap_BookValue = valGlobale_BookValue - NetDebt[choix]
-valCap_Sales = valGlobale_Sales- NetDebt[choix]
-valCap = c(valCap_NetIncome, valCap_EBITDA, valCap_BookValue, valCap_Sales)
-
-MultiplesRetenus = rbind('Moyenne des multiples', 'Médiane des multiples' ,'Agrégats ', 'EV ', 'Net Debt ', 'Valeur des Capitaux Propres')
-eval_table = rbind(Mean_EV, Median_EV,  agregat_cible, EV_cible, NetDebt_Cible, valCap)
-eval_table_names = rbind('EV/Net Income', 'EV/EBITDA', 'EV/Book Value', 'EV/Sales')
-names(eval_table)=c('EV/NetIncome', 'EV/EBITDA', 'EV/BookValue', 'EV/Sales')
-Table_evaluer = cbind(MultiplesRetenus,eval_table )
-```
-
-##
-
-```{r}
-print(MultiplesTable) # les mutilples de chaque entreprises 
-print(Table_evaluer) # Evaluation de l'entreprise choisie
-print(Table_evaluer[1:2,1:5])
-```
-
-
-
-
-```{r}
-
-```
-
-
-
 
